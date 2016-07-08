@@ -49,7 +49,7 @@ def p_include(p):
     if thrift.__thrift_file__ is None:
         raise ThriftParserError('Unexcepted include statement while loading'
                                 'from file like object.')
-    replace_include_dirs = [os.path.dirname(thrift.__thrift_file__)] 
+    replace_include_dirs = [os.path.dirname(thrift.__thrift_file__)] \
                             + include_dirs_
     for include_dir in replace_include_dirs:
         path = os.path.join(include_dir, p[2])
