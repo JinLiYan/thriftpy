@@ -55,7 +55,11 @@ def p_include(p):
         path = os.path.join(include_dir, p[2])
         if os.path.exists(path):
             child = parse(path)
-            setattr(thrift, child.__name__, child)
+            child_list = getattr(thrift, child.__name__, None)
+            if child_list is None:
+                child_list = []
+            child_list.append(child)
+            setattr(thrift, child.__name__, child_list)  # modified
             _add_thrift_meta('includes', child)
             return
     raise ThriftParserError(('Couldn\'t include thrift %s in any '
@@ -155,17 +159,19 @@ def p_const_ref(p):
     child = thrift_stack[-1]
     for name in p[1].split('.'):
         father = child
-        child = getattr(child, name, None)
-        if child is None:
+        child_list = getattr(child, name, None)
+        if child_list is None:
             raise ThriftParserError('Cann\'t find name %r at line %d'
                                     % (p[1], p.lineno(1)))
 
-    if _get_ttype(child) is None or _get_ttype(father) == TType.I32:
-        # child is a constant or enum value
-        p[0] = child
-    else:
-        raise ThriftParserError('No enum value or constant found '
-                                'named %r' % p[1])
+    for child in child_list:
+        if _get_ttype(child) is None or _get_ttype(father) == TType.I32:
+            # child is a constant or enum value
+            p[0] = child
+            return
+        else:
+            raise ThriftParserError('No enum value or constant found '
+                                    'named %r' % p[1])
 
 
 def p_ttype(p):
@@ -248,7 +254,15 @@ def p_service(p):
     if len(p) == 8:
         extends = thrift
         for name in p[4].split('.'):
-            extends = getattr(extends, name, None)
+            if isinstance(extends, list):
+                for e in extends:
+                    temp = getattr(e, name, None)
+                    if temp:
+                        extends = temp
+                        break
+            else:
+                extends = getattr(extends, name, None)
+
             if extends is None:
                 raise ThriftParserError('Can\'t find service %r for '
                                         'service %r to extend' %
@@ -358,10 +372,19 @@ def p_ref_type(p):
     ref_type = thrift_stack[-1]
 
     for name in p[1].split('.'):
-        ref_type = getattr(ref_type, name, None)
-        if ref_type is None:
-            raise ThriftParserError('No type found: %r, at line %d' %
-                                    (p[1], p.lineno(1)))
+        if isinstance(ref_type, list):
+            for r in ref_type:
+                temp = getattr(r, name, None)
+                if temp:
+                    ref_type = temp
+                    break
+        else:
+            ref_type = getattr(ref_type, name, None)
+
+    if ref_type is None:
+        raise ThriftParserError('No type found: %r, at line %d' %
+                                (p[1], p.lineno(1)))
+
 
     if hasattr(ref_type, '_ttype'):
         p[0] = getattr(ref_type, '_ttype'), ref_type
