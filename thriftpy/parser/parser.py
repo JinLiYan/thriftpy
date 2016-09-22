@@ -158,6 +158,7 @@ def p_const_ref(p):
     '''const_ref : IDENTIFIER'''
     child = thrift_stack[-1]
     for name in p[1].split('.'):
+
         father = child
         child_list = getattr(child, name, None)
         if child_list is None:
@@ -250,7 +251,6 @@ def p_service(p):
                | SERVICE IDENTIFIER EXTENDS IDENTIFIER '{' function_seq '}'
     '''
     thrift = thrift_stack[-1]
-
     if len(p) == 8:
         extends = thrift
         for name in p[4].split('.'):
@@ -262,11 +262,11 @@ def p_service(p):
                         break
             else:
                 extends = getattr(extends, name, None)
-
-            if extends is None:
-                raise ThriftParserError('Can\'t find service %r for '
-                                        'service %r to extend' %
-                                        (p[4], p[2]))
+                
+        if extends is None:
+            raise ThriftParserError('Can\'t find service %r for '
+                                    'service %r to extend' %
+                                    (p[4], p[2]))
 
         if not hasattr(extends, 'thrift_services'):
             raise ThriftParserError('Can\'t extends %r, not a service'
@@ -370,7 +370,6 @@ def p_field_type(p):
 def p_ref_type(p):
     '''ref_type : IDENTIFIER'''
     ref_type = thrift_stack[-1]
-
     for name in p[1].split('.'):
         if isinstance(ref_type, list):
             for r in ref_type:
@@ -381,9 +380,9 @@ def p_ref_type(p):
         else:
             ref_type = getattr(ref_type, name, None)
 
-    if ref_type is None:
-        raise ThriftParserError('No type found: %r, at line %d' %
-                                (p[1], p.lineno(1)))
+        if ref_type is None:
+            raise ThriftParserError('No type found: %r, at line %d' %
+                                    (p[1], p.lineno(1)))
 
 
     if hasattr(ref_type, '_ttype'):
@@ -392,7 +391,7 @@ def p_ref_type(p):
         p[0] = ref_type
 
 
-def p_base_type(p):  # noqa
+def p_base_type(p):  # noq
     '''base_type : BOOL
                  | BYTE
                  | I16
