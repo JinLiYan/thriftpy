@@ -250,6 +250,7 @@ def p_service(p):
                | SERVICE IDENTIFIER EXTENDS IDENTIFIER '{' function_seq '}'
     '''
     thrift = thrift_stack[-1]
+
     if len(p) == 8:
         extends = thrift
         for name in p[4].split('.'):
