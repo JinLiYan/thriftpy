@@ -254,3 +254,23 @@ def test_recursive_union():
         6: (TType.MAP, 'object', (TType.STRING, (TType.STRUCT,
                                                  thrift.Dynamic)), False)
     }
+
+
+def test_issue_215():
+    thrift = load('parser-cases/issue_215.thrift')
+    assert thrift.abool is True
+    assert thrift.falseValue == 123
+
+
+def test_issue_242():
+    thrift = load('parser-cases/double_type_int.thrift')
+    book = thrift.Book()
+    assert book.price == 1
+    assert isinstance(book.price, float)
+    assert isinstance(thrift.value1, float) and thrift.value1 == 3
+    assert isinstance(thrift.value2, float) and thrift.value2 == 3.1
+
+
+def test_annotations():
+    load('parser-cases/annotations.thrift')
+    load('parser-cases/issue_252.thrift')

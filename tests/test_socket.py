@@ -4,6 +4,7 @@ from __future__ import absolute_import, division
 
 import os
 import socket
+import sys
 
 import pytest
 
@@ -47,6 +48,9 @@ def test_inet6_socket():
     _test_socket(server_socket, client_socket)
 
 
+@pytest.mark.skipif(
+    sys.platform == 'darwin' and os.getuid() != 0,
+    reason='os.mknod() requires super-user privileges on darwin')
 def test_unix_domain_socket():
     sock_file = "/tmp/thriftpy_test.sock"
 
@@ -90,6 +94,7 @@ def test_client_socket_close():
 
     conn = server_socket.accept()
     client_socket.close()
+    assert not client_socket.is_open()
 
     with pytest.raises(TTransportException) as e:
         conn.read(1024)

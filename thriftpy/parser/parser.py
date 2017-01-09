@@ -14,6 +14,7 @@ import types
 from ply import lex, yacc
 from .lexer import *  # noqa
 from .exc import ThriftParserError, ThriftGrammerError
+from thriftpy._compat import urlopen, urlparse
 from ..thrift import gen_init, TType, TPayload, TException
 
 
@@ -50,7 +51,7 @@ def p_include(p):
         raise ThriftParserError('Unexcepted include statement while loading'
                                 'from file like object.')
     replace_include_dirs = [os.path.dirname(thrift.__thrift_file__)] \
-                            + include_dirs_
+        + include_dirs_
     for include_dir in replace_include_dirs:
         path = os.path.join(include_dir, p[2])
         if os.path.exists(path):
@@ -184,12 +185,12 @@ def p_ttype(p):
 
 
 def p_typedef(p):
-    '''typedef : TYPEDEF field_type IDENTIFIER'''
+    '''typedef : TYPEDEF field_type IDENTIFIER type_annotations'''
     setattr(thrift_stack[-1], p[3], p[2])
 
 
 def p_enum(p):  # noqa
-    '''enum : ENUM IDENTIFIER '{' enum_seq '}' '''
+    '''enum : ENUM IDENTIFIER '{' enum_seq '}' type_annotations'''
     val = _make_enum(p[2], p[4])
     setattr(thrift_stack[-1], p[2], val)
     _add_thrift_meta('enums', val)
@@ -203,17 +204,17 @@ def p_enum_seq(p):
 
 
 def p_enum_item(p):
-    '''enum_item : IDENTIFIER '=' INTCONSTANT
-                 | IDENTIFIER
+    '''enum_item : IDENTIFIER '=' INTCONSTANT type_annotations
+                 | IDENTIFIER type_annotations
                  |'''
-    if len(p) == 4:
+    if len(p) == 5:
         p[0] = [p[1], p[3]]
-    elif len(p) == 2:
+    elif len(p) == 3:
         p[0] = [p[1], None]
 
 
 def p_struct(p):
-    '''struct : seen_struct '{' field_seq '}' '''
+    '''struct : seen_struct '{' field_seq '}' type_annotations'''
     val = _fill_in_struct(p[1], p[3])
     _add_thrift_meta('structs', val)
 
@@ -239,15 +240,15 @@ def p_seen_union(p):
 
 
 def p_exception(p):
-    '''exception : EXCEPTION IDENTIFIER '{' field_seq '}' '''
+    '''exception : EXCEPTION IDENTIFIER '{' field_seq '}' type_annotations '''
     val = _make_struct(p[2], p[4], base_cls=TException)
     setattr(thrift_stack[-1], p[2], val)
     _add_thrift_meta('exceptions', val)
 
 
-def p_service(p):
-    '''service : SERVICE IDENTIFIER '{' function_seq '}'
-               | SERVICE IDENTIFIER EXTENDS IDENTIFIER '{' function_seq '}'
+def p_simple_service(p):
+    '''simple_service : SERVICE IDENTIFIER '{' function_seq '}'
+                | SERVICE IDENTIFIER EXTENDS IDENTIFIER '{' function_seq '}'
     '''
     thrift = thrift_stack[-1]
 
@@ -280,11 +281,16 @@ def p_service(p):
     _add_thrift_meta('services', val)
 
 
-def p_function(p):
-    '''function : ONEWAY function_type IDENTIFIER '(' field_seq ')' throws
-                | ONEWAY function_type IDENTIFIER '(' field_seq ')'
-                | function_type IDENTIFIER '(' field_seq ')' throws
-                | function_type IDENTIFIER '(' field_seq ')' '''
+def p_service(p):
+    '''service : simple_service type_annotations'''
+    p[0] = p[1]
+
+
+def p_simple_function(p):
+    '''simple_function : ONEWAY function_type IDENTIFIER '(' field_seq ')'
+    | ONEWAY function_type IDENTIFIER '(' field_seq ')' throws
+    | function_type IDENTIFIER '(' field_seq ')' throws
+    | function_type IDENTIFIER '(' field_seq ')' '''
 
     if p[1] == 'oneway':
         oneway = True
@@ -299,6 +305,11 @@ def p_function(p):
         throws = p[len(p) - 1]
 
     p[0] = [oneway, p[base + 1], p[base + 2], p[base + 4], throws]
+
+
+def p_function(p):
+    '''function : simple_function type_annotations'''
+    p[0] = p[1]
 
 
 def p_function_seq(p):
@@ -329,9 +340,10 @@ def p_field_seq(p):
     _parse_seq(p)
 
 
-def p_field(p):
-    '''field : field_id field_req field_type IDENTIFIER
-             | field_id field_req field_type IDENTIFIER '=' const_value'''
+def p_simple_field(p):
+    '''simple_field : field_id field_req field_type IDENTIFIER
+             | field_id field_req field_type IDENTIFIER '=' const_value
+             '''
 
     if len(p) == 7:
         try:
@@ -344,6 +356,11 @@ def p_field(p):
         val = None
 
     p[0] = [p[1], p[2], p[3], p[4], val]
+
+
+def p_field(p):
+    '''field : simple_field type_annotations'''
+    p[0] = p[1]
 
 
 def p_field_id(p):
@@ -392,15 +409,15 @@ def p_ref_type(p):
         p[0] = ref_type
 
 
-def p_base_type(p):  # noqa
-    '''base_type : BOOL
-                 | BYTE
-                 | I16
-                 | I32
-                 | I64
-                 | DOUBLE
-                 | STRING
-                 | BINARY'''
+def p_simple_base_type(p):  # noqa
+    '''simple_base_type : BOOL
+                        | BYTE
+                        | I16
+                        | I32
+                        | I64
+                        | DOUBLE
+                        | STRING
+                        | BINARY'''
     if p[1] == 'bool':
         p[0] = TType.BOOL
     if p[1] == 'byte':
@@ -419,10 +436,20 @@ def p_base_type(p):  # noqa
         p[0] = TType.BINARY
 
 
+def p_base_type(p):
+    '''base_type : simple_base_type type_annotations'''
+    p[0] = p[1]
+
+
+def p_simple_container_type(p):
+    '''simple_container_type : map_type
+                             | list_type
+                             | set_type'''
+    p[0] = p[1]
+
+
 def p_container_type(p):
-    '''container_type : map_type
-                      | list_type
-                      | set_type'''
+    '''container_type : simple_container_type type_annotations'''
     p[0] = p[1]
 
 
@@ -445,6 +472,31 @@ def p_definition_type(p):
     '''definition_type : base_type
                        | container_type'''
     p[0] = p[1]
+
+
+def p_type_annotations(p):
+    '''type_annotations : '(' type_annotation_seq ')'
+                        |'''
+    if len(p) == 4:
+        p[0] = p[2]
+    else:
+        p[0] = None
+
+
+def p_type_annotation_seq(p):
+    '''type_annotation_seq : type_annotation sep type_annotation_seq
+                           | type_annotation type_annotation_seq
+                           |'''
+    _parse_seq(p)
+
+
+def p_type_annotation(p):
+    '''type_annotation : IDENTIFIER '=' LITERAL
+                       | IDENTIFIER '''
+    if len(p) == 4:
+        p[0] = p[1], p[3]
+    else:
+        p[0] = p[1], None  # Without Value
 
 
 thrift_stack = []
@@ -504,8 +556,19 @@ def parse(path, module_name=None, include_dirs=None, include_dir=None,
     if not path.endswith('.thrift'):
         raise ThriftParserError('Path should end with .thrift')
 
-    with open(path) as fh:
-        data = fh.read()
+    url_scheme = urlparse(path).scheme
+    if url_scheme == 'file':
+        with open(urlparse(path).netloc + urlparse(path).path) as fh:
+            data = fh.read()
+    elif url_scheme == '':
+        with open(path) as fh:
+            data = fh.read()
+    elif url_scheme in ('http', 'https'):
+        data = urlopen(path).read()
+    else:
+        raise ThriftParserError('ThriftPy does not support generating module '
+                                'with path in protocol \'{}\''.format(
+                                    url_scheme))
 
     if module_name is not None and not module_name.endswith('_thrift'):
         raise ThriftParserError('ThriftPy can only generate module with '
@@ -647,8 +710,8 @@ def _cast_i64(v):
 
 
 def _cast_double(v):
-    assert isinstance(v, float)
-    return v
+    assert isinstance(v, (float, int))
+    return float(v)
 
 
 def _cast_string(v):
@@ -770,8 +833,8 @@ def _fill_in_struct(cls, fields, _gen_init=True):
     for field in fields:
         if field[0] in thrift_spec or field[3] in _tspec:
             raise ThriftGrammerError(('\'%d:%s\' field identifier/name has '
-                                      'already been used') % (
-                                          field[0], field[3]))
+                                      'already been used') % (field[0],
+                                                              field[3]))
         ttype = field[2]
         thrift_spec[field[0]] = _ttype_spec(ttype, field[3], field[1])
         default_spec.append((field[3], field[4]))

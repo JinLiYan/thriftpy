@@ -56,6 +56,7 @@ thrift_reserved_keywords = (
     'float',
     'for',
     'foreach',
+    'from',
     'function',
     'global',
     'goto',
@@ -191,7 +192,7 @@ def t_ignore_COMMENT(t):
 
 
 def t_BOOLCONSTANT(t):
-    r'true|false'
+    r'\btrue\b|\bfalse\b'
     t.value = t.value == 'true'
     return t
 
