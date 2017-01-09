@@ -158,7 +158,6 @@ def p_const_ref(p):
     '''const_ref : IDENTIFIER'''
     child = thrift_stack[-1]
     for name in p[1].split('.'):
-
         father = child
         child_list = getattr(child, name, None)
         if child_list is None:
@@ -169,7 +168,7 @@ def p_const_ref(p):
         if _get_ttype(child) is None or _get_ttype(father) == TType.I32:
             # child is a constant or enum value
             p[0] = child
-            return
+            break
         else:
             raise ThriftParserError('No enum value or constant found '
                                     'named %r' % p[1])
@@ -262,11 +261,11 @@ def p_service(p):
                         break
             else:
                 extends = getattr(extends, name, None)
-                
-        if extends is None:
-            raise ThriftParserError('Can\'t find service %r for '
-                                    'service %r to extend' %
-                                    (p[4], p[2]))
+
+            if extends is None:
+                raise ThriftParserError('Can\'t find service %r for '
+                                        'service %r to extend' %
+                                        (p[4], p[2]))
 
         if not hasattr(extends, 'thrift_services'):
             raise ThriftParserError('Can\'t extends %r, not a service'
@@ -370,6 +369,7 @@ def p_field_type(p):
 def p_ref_type(p):
     '''ref_type : IDENTIFIER'''
     ref_type = thrift_stack[-1]
+
     for name in p[1].split('.'):
         if isinstance(ref_type, list):
             for r in ref_type:
@@ -380,9 +380,9 @@ def p_ref_type(p):
         else:
             ref_type = getattr(ref_type, name, None)
 
-        if ref_type is None:
-            raise ThriftParserError('No type found: %r, at line %d' %
-                                    (p[1], p.lineno(1)))
+    if ref_type is None:
+        raise ThriftParserError('No type found: %r, at line %d' %
+                                (p[1], p.lineno(1)))
 
 
     if hasattr(ref_type, '_ttype'):
@@ -391,7 +391,7 @@ def p_ref_type(p):
         p[0] = ref_type
 
 
-def p_base_type(p):  # noq
+def p_base_type(p):  # noqa
     '''base_type : BOOL
                  | BYTE
                  | I16
@@ -454,11 +454,9 @@ thrift_cache = {}
 def parse(path, module_name=None, include_dirs=None, include_dir=None,
           lexer=None, parser=None, enable_cache=True):
     """Parse a single thrift file to module object, e.g.::
-
         >>> from thriftpy.parser.parser import parse
         >>> note_thrift = parse("path/to/note.thrift")
         <module 'note_thrift' (built-in)>
-
     :param path: file path to parse, should be a string ending with '.thrift'.
     :param module_name: the name for parsed module, the default is the basename
                         without extension of `path`.
@@ -530,12 +528,10 @@ def parse(path, module_name=None, include_dirs=None, include_dir=None,
 
 def parse_fp(source, module_name, lexer=None, parser=None, enable_cache=True):
     """Parse a file-like object to thrift module object, e.g.::
-
         >>> from thriftpy.parser.parser import parse_fp
         >>> with open("path/to/note.thrift") as fp:
                 parse_fp(fp, "note_thrift")
         <module 'note_thrift' (built-in)>
-
     :param source: file-like object, expected to have a method named `read`.
     :param module_name: the name for parsed module, shoule be endswith
                         '_thrift'.
