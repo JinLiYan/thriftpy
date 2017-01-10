@@ -160,19 +160,18 @@ def p_const_ref(p):
     child = thrift_stack[-1]
     for name in p[1].split('.'):
         father = child
-        child_list = getattr(child, name, None)
-        if child_list is None:
+        child = getattr(child, name, None)
+        if child is None:
             raise ThriftParserError('Cann\'t find name %r at line %d'
                                     % (p[1], p.lineno(1)))
 
-    for child in child_list:
-        if _get_ttype(child) is None or _get_ttype(father) == TType.I32:
-            # child is a constant or enum value
-            p[0] = child
-            break
-        else:
-            raise ThriftParserError('No enum value or constant found '
-                                    'named %r' % p[1])
+    # for child in child_list:
+    if _get_ttype(child) is None or _get_ttype(father) == TType.I32:
+        # child is a constant or enum value
+        p[0] = child
+    else:
+        raise ThriftParserError('No enum value or constant found '
+                                'named %r' % p[1])
 
 
 def p_ttype(p):
