@@ -56,11 +56,14 @@ def p_include(p):
         path = os.path.join(include_dir, p[2])
         if os.path.exists(path):
             child = parse(path)
-            child_list = getattr(thrift, child.__name__, None)
-            if child_list is None:
-                child_list = []
-            child_list.append(child)
-            setattr(thrift, child.__name__, child_list)  # modified
+            check = getattr(thrift, child.__name__, None)
+            if check is not None:
+            # 判断是否已经存在child.__name__，如果已经存在，更新该值，否则直接setattr
+                classes = child.__thrift_meta__['structs']
+                for c in classes:
+                    setattr(check, c.__name__, c)
+                return
+            setattr(thrift, child.__name__, child)
             _add_thrift_meta('includes', child)
             return
     raise ThriftParserError(('Couldn\'t include thrift %s in any '
@@ -158,23 +161,9 @@ def p_const_map_item(p):
 def p_const_ref(p):
     '''const_ref : IDENTIFIER'''
     child = thrift_stack[-1]
-    name_list = p[1].split('.')
-    for i in range(len(name_list)):
+    for name in p[1].split('.'):
         father = child
-        name = name_list[i]
         child = getattr(child, name, None)
-        if isinstance(child, list):
-            next = i + 1
-            child_temp = None
-            for c in child:
-                if i < len(name_list):
-                    temp = getattr(c, name_list[next], None)
-                    if temp is None:
-                        continue
-                    else:
-                        child_temp = c
-                        break
-            child = child_temp
         if child is None:
             raise ThriftParserError('Cann\'t find name %r at line %d'
                                     % (p[1], p.lineno(1)))
