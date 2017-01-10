@@ -158,9 +158,23 @@ def p_const_map_item(p):
 def p_const_ref(p):
     '''const_ref : IDENTIFIER'''
     child = thrift_stack[-1]
-    for name in p[1].split('.'):
+    name_list = p[1].split('.')
+    for i in range(len(name_list)):
         father = child
+        name = name_list[i]
         child = getattr(child, name, None)
+        if isinstance(child, list):
+            next = i + 1
+            child_temp = None
+            for c in child:
+                if i < len(name_list):
+                    temp = getattr(c, name_list[next], None)
+                    if temp is None:
+                        continue
+                    else:
+                        child_temp = c
+                        break
+            child = child_temp
         if child is None:
             raise ThriftParserError('Cann\'t find name %r at line %d'
                                     % (p[1], p.lineno(1)))
