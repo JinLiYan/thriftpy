@@ -179,7 +179,6 @@ def p_const_ref(p):
             raise ThriftParserError('Cann\'t find name %r at line %d'
                                     % (p[1], p.lineno(1)))
 
-    # for child in child_list:
     if _get_ttype(child) is None or _get_ttype(father) == TType.I32:
         # child is a constant or enum value
         p[0] = child
