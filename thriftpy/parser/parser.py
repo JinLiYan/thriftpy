@@ -59,9 +59,10 @@ def p_include(p):
             check = getattr(thrift, child.__name__, None)
             if check is not None:
             # 判断是否已经存在child.__name__，如果已经存在，更新该值，否则直接setattr
-                classes = child.__thrift_meta__['structs']
-                for c in classes:
-                    setattr(check, c.__name__, c)
+                for t, info in child.__thrift_meta__.iteritems():
+                    # 此处可能会有structs，exceptions等类型
+                    for c in info:
+                        setattr(check, c.__name__, c)
                 return
             setattr(thrift, child.__name__, child)
             _add_thrift_meta('includes', child)
